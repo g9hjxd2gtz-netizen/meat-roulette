@@ -80,13 +80,12 @@ body.dark{background:#000;color:#c00}
 
 <div class="card">
   <h1>🥩 年末ジャンボ肉くじ 🎯</h1>
-  <div class="sub">参加者の名前を入力 → 名前ボタンを押して抽選（結果は下に記録）</div>
+  <div class="sub">参加者の名前を入力 → 名前ボタンを押して抽選</div>
 
   <div id="num" class="num">---</div>
 
   <div class="row">
     <button id="bgmBtn" class="secondary">🎵 BGM ON</button>
-    <button id="voiceBtn" class="secondary">🎤 肉ボイス ON</button>
     <button id="resetBtn" class="secondary">🧹 記録リセット</button>
   </div>
 </div>
@@ -122,6 +121,9 @@ body.dark{background:#000;color:#c00}
 <audio id="bgm" loop></audio>
 
 <script>
+/* ===== 環境判定 ===== */
+const IS_IPAD = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+
 /* ===== 設定 ===== */
 const BGM_FILE='ルーレット.mp3';
 const MIN=0, MAX=100;
@@ -129,11 +131,10 @@ const TARGET=29, NEAR=5;
 const SPIN_MS=2500;
 const TEASE_TOTAL_MS=10000;
 const TICK_MS=60;
-/* ================= */
 
+/* ===== DOM ===== */
 const numEl=document.getElementById('num');
 const bgmBtn=document.getElementById('bgmBtn');
-const voiceBtn=document.getElementById('voiceBtn');
 const resetBtn=document.getElementById('resetBtn');
 const logBody=document.getElementById('logBody');
 const nameInputsEl=document.getElementById('nameInputs');
@@ -144,7 +145,6 @@ const bgm=document.getElementById('bgm');
 bgm.src=BGM_FILE;
 
 let bgmOn=false, isRunning=false;
-let voiceOn=true;
 
 /* ===== Audio ===== */
 let audioCtx;
@@ -176,14 +176,39 @@ function doomSound(){
   o.start(t);o.stop(t+.9);
 }
 
-/* ===== 肉ボイス ===== */
+/* ===== PC専用：肉ボイス ===== */
 function speak(text,rate,pitch){
-  if(!voiceOn) return;
+  if(IS_IPAD) return;
   if(!('speechSynthesis'in window))return;
   const u=new SpeechSynthesisUtterance(text);
   u.lang='ja-JP';u.rate=rate;u.pitch=pitch;
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
+}
+
+/* ===== iPad専用：SE ===== */
+function seWin(){
+  beep(1200,180,'triangle',.12);
+  setTimeout(()=>beep(1600,260,'triangle',.14),200);
+}
+function seNear(){
+  beep(400,80,'square',.04);
+  setTimeout(()=>beep(420,80,'square',.04),90);
+  setTimeout(()=>beep(440,120,'square',.05),180);
+}
+function seLose(){
+  beep(300,140,'sine',.03);
+}
+
+/* ===== 共通演出呼び分け ===== */
+function onWin(){ IS_IPAD ? seWin() : speak('コングラッチュレーショーーーン！！',1.05,1.6); }
+function onNear(){ IS_IPAD ? seNear() : speak(randomNormalVoice(),0.95,0.6); }
+function onLose(){ IS_IPAD ? seLose() : speak(randomNormalVoice(),0.95,0.6); }
+function onDoom(){
+  doomSound();
+  if(!IS_IPAD){
+    setTimeout(()=>speak('肉の神に、見放されし者……',0.7,0.6),900);
+  }
 }
 
 /* ===== BGM ===== */
@@ -196,14 +221,6 @@ bgmBtn.onclick=()=>{
   }else{
     bgm.pause(); bgmBtn.textContent='🎵 BGM ON'; bgmOn=false;
   }
-};
-
-/* ===== 肉ボイス ON/OFF ===== */
-voiceBtn.onclick=()=>{
-  ensureAudio();
-  voiceOn=!voiceOn;
-  voiceBtn.textContent=voiceOn?'🎤 肉ボイス ON':'🎤 肉ボイス OFF';
-  if(!voiceOn) speechSynthesis.cancel();
 };
 
 /* ===== 参加者 ===== */
@@ -300,8 +317,7 @@ function spinForName(index){
         if(bgmOn) bgm.pause();
         document.body.classList.add('dark');
         numEl.classList.add('shock');
-        doomSound();
-        setTimeout(()=>speak('肉の神に、見放されし者……',0.7,0.6),900);
+        onDoom();
         setTimeout(()=>{
           logResult(names[index],final);
           setButtonsDisabled(false);
@@ -310,14 +326,8 @@ function spinForName(index){
       }
 
       setFinalColor();
-      if(final===TARGET){
-        speak('コングラッチュレーショーーーン！！',1.05,1.6);
-      }else{
-        speak(randomNormalVoice(),0.95,0.6);
-      }
-
-      beep(880,160,'triangle',.08);
-      setTimeout(()=>beep(440,160,'triangle',.06),180);
+      if(final===TARGET) onWin();
+      else onLose();
 
       logResult(names[index],final);
       setButtonsDisabled(false);
@@ -325,7 +335,7 @@ function spinForName(index){
 
     if(diff<=NEAR){
       if(bgmOn) bgm.volume=.15;
-      setTimeout(()=>speak('に、に、に、にくの神がやってきたぞぉぉぉぉ！！',0.85,1.2),200);
+      setTimeout(()=>onNear(),200);
 
       let c=0;
       const steps=10;
