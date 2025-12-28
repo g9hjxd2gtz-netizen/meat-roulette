@@ -9,7 +9,7 @@
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;
   margin:0;padding:24px;text-align:center;
-  background:#fafafa;color:#111;
+  background:#fafafa;color:#111;transition:.4s;
 }
 .wrap{max-width:980px;margin:0 auto;}
 .card{
@@ -20,42 +20,37 @@ h1{margin:0 0 8px}
 .sub{opacity:.75;margin-bottom:12px}
 
 .num{
-  font-size:96px;font-weight:900;letter-spacing:6px;
+  font-size:100px;font-weight:900;letter-spacing:6px;
   margin:18px 0;padding:18px 0;border-radius:18px;
-  border:2px dashed #bbb;color:#111;
+  border:2px dashed #bbb;
+  color:#111;
 }
 .num.final{color:#c00 !important;}
-.num.shock{
-  color:#f00 !important;
-  text-shadow:0 0 28px #f00;
-  animation:shake .12s infinite;
-}
-
-@keyframes shake{
-  0%{transform:translate(0)}
-  25%{transform:translate(-4px,2px)}
-  50%{transform:translate(4px,-2px)}
-  75%{transform:translate(-2px,-4px)}
-  100%{transform:translate(0)}
-}
 
 .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 button{
   padding:14px 16px;font-size:18px;font-weight:800;
   border-radius:14px;border:none;background:#111;color:#fff;
+  cursor:pointer;
 }
 button.secondary{background:#555}
 button.small{font-size:14px;padding:10px 12px}
-button:disabled{opacity:.5}
+button:disabled{opacity:.5;cursor:not-allowed}
 
 .grid{
   display:grid;
-  grid-template-columns:repeat(4,minmax(200px,1fr));
-  gap:10px;text-align:left;
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
+  gap:10px;
+  text-align:left;
 }
 .namebox{
   display:flex;gap:8px;align-items:center;
   border:1px solid #ddd;border-radius:14px;padding:10px;background:#fff;
+}
+.namebox input{
+  width:100%;
+  border:1px solid #ddd;border-radius:10px;padding:8px 10px;
+  font-size:14px;
 }
 
 table{width:100%;border-collapse:collapse;font-size:14px}
@@ -63,7 +58,20 @@ th,td{border-bottom:1px solid #eee;padding:10px 8px;text-align:left}
 th{background:#fafafa}
 .right{text-align:right}
 
+/* 100 闇堕ち */
 body.dark{background:#000;color:#c00}
+.num.shock{
+  color:#f00 !important;
+  text-shadow:0 0 28px #f00;
+  animation:shake .12s infinite;
+}
+@keyframes shake{
+  0%{transform:translate(0,0)}
+  25%{transform:translate(-4px,2px)}
+  50%{transform:translate(4px,-2px)}
+  75%{transform:translate(-2px,-4px)}
+  100%{transform:translate(0,0)}
+}
 </style>
 </head>
 
@@ -72,7 +80,7 @@ body.dark{background:#000;color:#c00}
 
 <div class="card">
   <h1>🥩 年末ジャンボ肉くじ 🎯</h1>
-  <div class="sub">参加者の名前を入力 → 名前ボタンで抽選</div>
+  <div class="sub">参加者の名前を入力 → 名前ボタンを押して抽選（結果は下に記録）</div>
 
   <div id="num" class="num">---</div>
 
@@ -84,24 +92,24 @@ body.dark{background:#000;color:#c00}
 </div>
 
 <div class="card">
-  <div class="sub" style="text-align:left"><strong>👥 参加者（8名）</strong></div>
+  <div class="sub" style="text-align:left;margin-bottom:10px"><strong>👥 参加者（8名）</strong></div>
   <div class="grid" id="nameInputs"></div>
-  <div class="row" style="justify-content:flex-start;margin-top:12px">
+  <div class="row" style="margin-top:12px;justify-content:flex-start">
     <button id="applyNames" class="small">✅ 名前を反映</button>
   </div>
 
-  <div class="sub" style="text-align:left;margin-top:14px"><strong>🎲 抽選</strong></div>
+  <div class="sub" style="text-align:left;margin-top:14px;margin-bottom:8px"><strong>🎯 抽選</strong></div>
   <div class="row" id="nameButtons" style="justify-content:flex-start"></div>
 </div>
 
 <div class="card">
-  <div class="sub" style="text-align:left"><strong>🧾 抽選記録</strong></div>
+  <div class="sub" style="text-align:left;margin-bottom:8px"><strong>🧾 抽選記録</strong></div>
   <table>
     <thead>
       <tr>
         <th>名前</th>
         <th class="right">数字</th>
-        <th class="right">差</th>
+        <th class="right">29との差</th>
         <th>判定</th>
       </tr>
     </thead>
@@ -119,6 +127,7 @@ const BGM_FILE='ルーレット.mp3';
 const MIN=0, MAX=100;
 const TARGET=29, NEAR=5;
 const SPIN_MS=2500;
+const TEASE_TOTAL_MS=10000;
 const TICK_MS=60;
 /* ================= */
 
@@ -134,11 +143,10 @@ const applyNamesBtn=document.getElementById('applyNames');
 const bgm=document.getElementById('bgm');
 bgm.src=BGM_FILE;
 
-let bgmOn=false;
+let bgmOn=false, isRunning=false;
 let voiceOn=true;
-let isRunning=false;
 
-/* ===== iPad対応 Audio ===== */
+/* ===== Audio ===== */
 let audioCtx;
 function ensureAudio(){
   if(!audioCtx){
@@ -148,46 +156,55 @@ function ensureAudio(){
     audioCtx.resume();
   }
 }
-function beep(freq,ms){
+
+function beep(freq,ms,type='sine',gain=.05){
   ensureAudio();
+  const t=audioCtx.currentTime;
   const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-  o.frequency.value=freq; g.gain.value=.05;
+  o.type=type;o.frequency.value=freq;g.gain.value=gain;
   o.connect(g).connect(audioCtx.destination);
-  o.start(); o.stop(audioCtx.currentTime+ms/1000);
+  o.start(t);o.stop(t+ms/1000);
+}
+
+function doomSound(){
+  ensureAudio();
+  const t=audioCtx.currentTime;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type='sawtooth';o.frequency.setValueAtTime(80,t);
+  g.gain.setValueAtTime(.15,t);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(t);o.stop(t+.9);
 }
 
 /* ===== 肉ボイス ===== */
-function speak(text,rate=1,pitch=1){
+function speak(text,rate,pitch){
   if(!voiceOn) return;
-  if(!('speechSynthesis'in window)) return;
+  if(!('speechSynthesis'in window))return;
   const u=new SpeechSynthesisUtterance(text);
-  u.lang='ja-JP'; u.rate=rate; u.pitch=pitch;
+  u.lang='ja-JP';u.rate=rate;u.pitch=pitch;
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
 
-/* ===== ボタン ===== */
+/* ===== BGM ===== */
 bgmBtn.onclick=()=>{
   ensureAudio();
+  beep(120,20,'sine',.001);
   if(!bgmOn){
-    bgm.volume=.3; bgm.currentTime=0;
-    bgm.play().catch(()=>{});
+    bgm.volume=.3; bgm.currentTime=0; bgm.play().catch(()=>{});
     bgmBtn.textContent='🎵 BGM OFF'; bgmOn=true;
   }else{
-    bgm.pause();
-    bgmBtn.textContent='🎵 BGM ON'; bgmOn=false;
+    bgm.pause(); bgmBtn.textContent='🎵 BGM ON'; bgmOn=false;
   }
 };
 
+/* ===== 肉ボイス ON/OFF ===== */
 voiceBtn.onclick=()=>{
   ensureAudio();
   voiceOn=!voiceOn;
   voiceBtn.textContent=voiceOn?'🎤 肉ボイス ON':'🎤 肉ボイス OFF';
-  if(voiceOn) speak('肉、再起動',0.9,1.1);
-  else speechSynthesis.cancel();
+  if(!voiceOn) speechSynthesis.cancel();
 };
-
-resetBtn.onclick=()=>{logBody.innerHTML='';};
 
 /* ===== 参加者 ===== */
 let names=Array.from({length:8},(_,i)=>`参加者${i+1}`);
@@ -195,11 +212,15 @@ let names=Array.from({length:8},(_,i)=>`参加者${i+1}`);
 function renderNameInputs(){
   nameInputsEl.innerHTML='';
   names.forEach((n,i)=>{
-    nameInputsEl.innerHTML+=
-      `<div class="namebox">${i+1}
-       <input id="nameInput${i}" value="${n}" /></div>`;
+    const d=document.createElement('div');
+    d.className='namebox';
+    d.innerHTML=
+      `<div style="min-width:22px;font-weight:800">${i+1}</div>
+       <input id="nameInput${i}" value="${escapeHtml(n)}" />`;
+    nameInputsEl.appendChild(d);
   });
 }
+
 function renderNameButtons(){
   nameButtonsEl.innerHTML='';
   names.forEach((n,i)=>{
@@ -210,48 +231,137 @@ function renderNameButtons(){
     nameButtonsEl.appendChild(b);
   });
 }
+
 applyNamesBtn.onclick=()=>{
   for(let i=0;i<8;i++){
-    names[i]=document.getElementById(`nameInput${i}`).value||`参加者${i+1}`;
+    const v=document.getElementById(`nameInput${i}`).value.trim();
+    names[i]=v||`参加者${i+1}`;
   }
   renderNameButtons();
 };
 
-/* ===== 抽選 ===== */
-function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+resetBtn.onclick=()=>{logBody.innerHTML='';};
 
+function setButtonsDisabled(dis){
+  isRunning=dis;
+  Array.from(nameButtonsEl.querySelectorAll('button')).forEach(b=>b.disabled=dis);
+}
+
+function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function resetVisual(){
+  document.body.classList.remove('dark');
+  numEl.classList.remove('shock','final');
+  numEl.style.color='#111';
+}
+
+function setFinalColor(){
+  numEl.classList.add('final');
+  numEl.style.color='#c00';
+}
+
+function verdictText(final){
+  if(final===100) return '😈 肉に見放されし者';
+  if(final===TARGET) return '👑 ミートキング／ミートクイーン降臨';
+  if(Math.abs(final-TARGET)<=NEAR) return '🔥 肉の神とすれ違った者';
+  return '🥩 もっと肉を愛せよ！';
+}
+
+const normalVoices=[
+  '肉を焦がすなよ',
+  '飲み物を肉汁にしたら？',
+  'デザートも肉にしろ'
+];
+
+function randomNormalVoice(){
+  return normalVoices[Math.floor(Math.random()*normalVoices.length)];
+}
+
+/* ===== 抽選 ===== */
 function spinForName(index){
   if(isRunning) return;
-  isRunning=true;
   ensureAudio();
-  beep(120,30);
+  beep(120,20,'sine',.001);
+  setButtonsDisabled(true);
+  resetVisual();
 
-  numEl.className='num';
-  document.body.classList.remove('dark');
-
-  const timer=setInterval(()=>{
-    numEl.textContent=String(rand(MIN,MAX)).padStart(3,'0');
+  const spinTimer=setInterval(()=>{
+    numEl.textContent=String(randInt(MIN,MAX)).padStart(3,'0');
   },TICK_MS);
 
   setTimeout(()=>{
-    clearInterval(timer);
-    const final=rand(MIN,MAX);
-    numEl.textContent=String(final).padStart(3,'0');
-    numEl.classList.add('final');
+    clearInterval(spinTimer);
+    const final=randInt(MIN,MAX);
+    const diff=Math.abs(final-TARGET);
 
-    let verdict='もっと肉を愛せよ！';
-    if(final===TARGET){
-      verdict='ミートキング降臨';
-      speak('コングラッチュレーショーン！',1.05,1.5);
+    const showFinal=()=>{
+      numEl.textContent=String(final).padStart(3,'0');
+      if(final===100){
+        if(bgmOn) bgm.pause();
+        document.body.classList.add('dark');
+        numEl.classList.add('shock');
+        doomSound();
+        setTimeout(()=>speak('肉の神に、見放されし者……',0.7,0.6),900);
+        setTimeout(()=>{
+          logResult(names[index],final);
+          setButtonsDisabled(false);
+        },1200);
+        return;
+      }
+
+      setFinalColor();
+      if(final===TARGET){
+        speak('コングラッチュレーショーーーン！！',1.05,1.6);
+      }else{
+        speak(randomNormalVoice(),0.95,0.6);
+      }
+
+      beep(880,160,'triangle',.08);
+      setTimeout(()=>beep(440,160,'triangle',.06),180);
+
+      logResult(names[index],final);
+      setButtonsDisabled(false);
+    };
+
+    if(diff<=NEAR){
+      if(bgmOn) bgm.volume=.15;
+      setTimeout(()=>speak('に、に、に、にくの神がやってきたぞぉぉぉぉ！！',0.85,1.2),200);
+
+      let c=0;
+      const steps=10;
+      const tease=setInterval(()=>{
+        numEl.textContent=String(randInt(TARGET-NEAR,TARGET+NEAR)).padStart(3,'0');
+        beep(300,60,'square',.03);
+        if(++c>=steps){
+          clearInterval(tease);
+          if(bgmOn) bgm.volume=.3;
+          setTimeout(showFinal,600);
+        }
+      },TEASE_TOTAL_MS/steps);
     }else{
-      speak(['肉を焦がすなよ','飲み物を肉汁に','デザートも肉にしろ'][Math.floor(Math.random()*3)],0.95,0.7);
+      showFinal();
     }
-
-    logBody.innerHTML=
-      `<tr><td>${names[index]}</td><td class="right">${final}</td><td class="right">${Math.abs(final-TARGET)}</td><td>${verdict}</td></tr>`+logBody.innerHTML;
-
-    isRunning=false;
   },SPIN_MS);
+}
+
+function logResult(name,final){
+  const diff=Math.abs(final-TARGET);
+  const tr=document.createElement('tr');
+  tr.innerHTML=
+    `<td><strong>${escapeHtml(name)}</strong></td>
+     <td class="right">${final}</td>
+     <td class="right">${diff}</td>
+     <td>${escapeHtml(verdictText(final))}</td>`;
+  logBody.prepend(tr);
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#39;");
 }
 
 /* 初期描画 */
