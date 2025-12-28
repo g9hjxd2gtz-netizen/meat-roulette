@@ -118,6 +118,24 @@ body.dark{background:#000;color:#c00}
   animation:fadein 1.5s ease-out;
 }
 
+/* ★追加：雷点滅 */
+body.thunder{
+  animation:thunderFlash .15s infinite;
+}
+@keyframes thunderFlash{
+  0%{background:#fafafa;color:#111}
+  50%{background:#000;color:#fff}
+  100%{background:#fafafa;color:#111}
+}
+
+/* ★追加：肉の神接近中 */
+.result-god{
+  background:rgba(0,0,0,.85);
+  color:#ff0;
+  font-size:52px;
+  text-shadow:0 0 18px #ff0;
+}
+
 @keyframes zoom{
   0%{transform:scale(.2)}
   60%{transform:scale(1.15)}
@@ -184,7 +202,6 @@ body.dark{background:#000;color:#c00}
 
 </div>
 
-<!-- 判定文字 -->
 <div id="resultOverlay">
   <div id="resultText"></div>
 </div>
@@ -316,7 +333,7 @@ function setButtonsDisabled(dis){
 
 function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 function resetVisual(){
-  document.body.classList.remove('dark');
+  document.body.classList.remove('dark','thunder');
   numEl.classList.remove('shock','final');
   numEl.style.color='#111';
 }
@@ -324,12 +341,35 @@ function setFinalColor(){
   numEl.classList.add('final');
   numEl.style.color='#c00';
 }
+
+/* ★追加：外れメッセージランダム */
+const meatMessages=[
+  '🥩 もっと肉を愛せよ！',
+  '🥩 肉を焦がしたりしてないよね？',
+  '🥩 ドリンクを肉汁にしてみる？',
+  '🥩 デザートは肉追加だよね？',
+  '🥩 野菜？なにそれ？',
+  '🥩 もしかして100番引きたかった？',
+  '🥩 カルビ2人前追加しとく？',
+  '🥩 なつかしの牛タンゲームやりたい人？',
+  '🥩 魚が食べたいとか言ってないよね？',
+  '🥩 にんにくも肉の一種だよね',
+  '🥩 14引いたら肉食べてジューシーー！！と叫ぶこと',
+  '🥩 ロイホに肉パフェはないよ',
+  '🥩 あつい肉は別腹',
+  '🥩 次は2月9日で幹事よろしく'
+];
+function randomMeatMessage(){
+  return meatMessages[Math.floor(Math.random()*meatMessages.length)];
+}
+
 function verdictText(final){
   if(final===100) return '😈 肉に見放されし者';
   if(final===TARGET) return '👑 ミートキング／ミートクイーン降臨';
   if(Math.abs(final-TARGET)<=NEAR) return '🔥 肉の神とすれ違った者';
-  return '🥩 もっと肉を愛せよ！';
+  return randomMeatMessage();
 }
+
 const normalVoices=[
   '肉を焦がすなよ',
   '飲み物を肉汁にしたら？',
@@ -376,21 +416,21 @@ function spinForName(index){
 
       if(final===TARGET){
         showResultText(
-          '👑 あなたが<br>ミートキング！<br>ミートクイーンだ！！',
+          '👑 あなたがミートキング！ミートクイーンだ！！',
           'result-win',
           3500
         );
         speak('コングラッチュレーショーーーン！！',1.05,1.6);
       }else if(diff<=NEAR){
         showResultText(
-          '🔥 肉の神と<br>すれ違った！！',
+          '🔥 肉の神とすれ違った！！',
           'result-near',
           2500
         );
         speak(randomNormalVoice(),0.95,0.6);
       }else{
         showResultText(
-          '🥩 もっと肉を<br>愛せよ！',
+          randomMeatMessage(),
           'result-lose',
           1800
         );
@@ -403,17 +443,26 @@ function spinForName(index){
 
     if(diff<=NEAR){
       if(bgmOn) bgm.volume=.15;
-      let c=0;
-      const steps=10;
+
+      document.body.classList.add('thunder');
+      showResultText(
+        '⚡ 肉の神 接近中！！ ⚡',
+        'result-god',
+        TEASE_TOTAL_MS
+      );
+
       const tease=setInterval(()=>{
-        numEl.textContent=String(randInt(TARGET-NEAR,TARGET+NEAR)).padStart(3,'0');
-        beep(300,60,'square',.03);
-        if(++c>=steps){
-          clearInterval(tease);
-          if(bgmOn) bgm.volume=.3;
-          setTimeout(showFinal,600);
-        }
-      },TEASE_TOTAL_MS/steps);
+        numEl.textContent=
+          String(randInt(TARGET-NEAR,TARGET+NEAR)).padStart(3,'0');
+      },TICK_MS);
+
+      setTimeout(()=>{
+        clearInterval(tease);
+        document.body.classList.remove('thunder');
+        overlay.classList.remove('show');
+        if(bgmOn) bgm.volume=.3;
+        setTimeout(showFinal,600);
+      },TEASE_TOTAL_MS);
     }else{
       showFinal();
     }
