@@ -118,7 +118,7 @@ body.dark{background:#000;color:#c00}
   animation:fadein 1.5s ease-out;
 }
 
-/* ★追加：雷点滅 */
+/* ★雷点滅（29±5専用） */
 body.thunder{
   animation:thunderFlash .15s infinite;
 }
@@ -128,7 +128,7 @@ body.thunder{
   100%{background:#fafafa;color:#111}
 }
 
-/* ★追加：肉の神接近中 */
+/* ★肉の神 接近中 */
 .result-god{
   background:rgba(0,0,0,.85);
   color:#ff0;
@@ -165,9 +165,8 @@ body.thunder{
 <div class="card">
   <h1>🥩 年末ジャンボ肉くじ 🎯</h1>
   <div class="sub">参加者の名前を入力 → 名前ボタンを押して抽選</div>
-
+  <div class="sub">一人5回ずつ抽選、ベストスコアで勝負！誰も29を引けなければリセットリトライ！</div>
   <div id="num" class="num">---</div>
-
   <div class="row">
     <button id="bgmBtn" class="secondary">🎵 BGM ON</button>
     <button id="resetBtn" class="secondary">🧹 記録リセット</button>
@@ -180,7 +179,6 @@ body.thunder{
   <div class="row" style="margin-top:12px;justify-content:flex-start">
     <button id="applyNames" class="small">✅ 名前を反映</button>
   </div>
-
   <div class="sub" style="text-align:left;margin-top:14px;margin-bottom:8px"><strong>🎯 抽選</strong></div>
   <div class="row" id="nameButtons" style="justify-content:flex-start"></div>
 </div>
@@ -228,7 +226,6 @@ const logBody=document.getElementById('logBody');
 const nameInputsEl=document.getElementById('nameInputs');
 const nameButtonsEl=document.getElementById('nameButtons');
 const applyNamesBtn=document.getElementById('applyNames');
-
 const overlay=document.getElementById('resultOverlay');
 const overlayText=document.getElementById('resultText');
 
@@ -273,7 +270,7 @@ function speak(text,rate,pitch){
   speechSynthesis.speak(u);
 }
 
-/* ===== 文字表示 ===== */
+/* ===== 表示 ===== */
 function showResultText(html, cls, ms=2500){
   overlayText.className=cls;
   overlayText.innerHTML=html;
@@ -342,7 +339,7 @@ function setFinalColor(){
   numEl.style.color='#c00';
 }
 
-/* ★追加：外れメッセージランダム */
+/* ★外れメッセージ */
 const meatMessages=[
   '🥩 もっと肉を愛せよ！',
   '🥩 肉を焦がしたりしてないよね？',
@@ -367,14 +364,10 @@ function verdictText(final){
   if(final===100) return '😈 肉に見放されし者';
   if(final===TARGET) return '👑 ミートキング／ミートクイーン降臨';
   if(Math.abs(final-TARGET)<=NEAR) return '🔥 肉の神とすれ違った者';
-  return randomMeatMessage();
+  return '';
 }
 
-const normalVoices=[
-  '肉を焦がすなよ',
-  '飲み物を肉汁にしたら？',
-  'デザートも肉にしろ'
-];
+const normalVoices=['肉を焦がすなよ','飲み物を肉汁にしたら？','デザートも肉にしろ'];
 function randomNormalVoice(){
   return normalVoices[Math.floor(Math.random()*normalVoices.length)];
 }
@@ -395,6 +388,7 @@ function spinForName(index){
     clearInterval(spinTimer);
     const final=randInt(MIN,MAX);
     const diff=Math.abs(final-TARGET);
+    let finalMessage='';
 
     const showFinal=()=>{
       numEl.textContent=String(final).padStart(3,'0');
@@ -404,9 +398,10 @@ function spinForName(index){
         document.body.classList.add('dark');
         numEl.classList.add('shock');
         doomSound();
-        showResultText('😈 肉に見放されし者…','result-doom',3000);
+        finalMessage='😈 肉に見放されし者…';
+        showResultText(finalMessage,'result-doom',3000);
         setTimeout(()=>{
-          logResult(names[index],final);
+          logResult(names[index],final,finalMessage);
           setButtonsDisabled(false);
         },1200);
         return;
@@ -415,41 +410,27 @@ function spinForName(index){
       setFinalColor();
 
       if(final===TARGET){
-        showResultText(
-          '👑 あなたがミートキング！ミートクイーンだ！！',
-          'result-win',
-          3500
-        );
+        finalMessage='👑 あなたがミートキング！ミートクイーンだ！！';
+        showResultText(finalMessage,'result-win',3500);
         speak('コングラッチュレーショーーーン！！',1.05,1.6);
       }else if(diff<=NEAR){
-        showResultText(
-          '🔥 肉の神とすれ違った！！',
-          'result-near',
-          2500
-        );
+        finalMessage='🔥 肉の神とすれ違った！！';
+        showResultText(finalMessage,'result-near',2500);
         speak(randomNormalVoice(),0.95,0.6);
       }else{
-        showResultText(
-          randomMeatMessage(),
-          'result-lose',
-          1800
-        );
+        finalMessage=randomMeatMessage();
+        showResultText(finalMessage,'result-lose',1800);
         speak(randomNormalVoice(),0.95,0.6);
       }
 
-      logResult(names[index],final);
+      logResult(names[index],final,finalMessage);
       setButtonsDisabled(false);
     };
 
     if(diff<=NEAR){
       if(bgmOn) bgm.volume=.15;
-
       document.body.classList.add('thunder');
-      showResultText(
-        '⚡ 肉の神 接近中！！ ⚡',
-        'result-god',
-        TEASE_TOTAL_MS
-      );
+      showResultText('⚡ 肉の神 接近中！！ ⚡','result-god',TEASE_TOTAL_MS);
 
       const tease=setInterval(()=>{
         numEl.textContent=
@@ -469,14 +450,14 @@ function spinForName(index){
   },SPIN_MS);
 }
 
-function logResult(name,final){
+function logResult(name,final,judgeText){
   const diff=Math.abs(final-TARGET);
   const tr=document.createElement('tr');
   tr.innerHTML=
     `<td><strong>${escapeHtml(name)}</strong></td>
      <td class="right">${final}</td>
      <td class="right">${diff}</td>
-     <td>${escapeHtml(verdictText(final))}</td>`;
+     <td>${escapeHtml(judgeText || verdictText(final))}</td>`;
   logBody.prepend(tr);
 }
 
