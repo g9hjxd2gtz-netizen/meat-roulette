@@ -8,15 +8,16 @@
 <style>
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;
-  margin:0;padding:20px;text-align:center;
+  margin:0;padding:24px;text-align:center;
   background:#fafafa;color:#111;
 }
-.wrap{max-width:900px;margin:0 auto;}
+.wrap{max-width:980px;margin:0 auto;}
 .card{
-  padding:20px;border-radius:20px;border:1px solid #ddd;background:#fff;
+  padding:24px;border-radius:20px;border:1px solid #ddd;background:#fff;
   margin-bottom:16px;
 }
-h1{margin:0 0 10px}
+h1{margin:0 0 8px}
+.sub{opacity:.75;margin-bottom:12px}
 
 .num{
   font-size:96px;font-weight:900;letter-spacing:6px;
@@ -24,33 +25,45 @@ h1{margin:0 0 10px}
   border:2px dashed #bbb;color:#111;
 }
 .num.final{color:#c00 !important;}
+.num.shock{
+  color:#f00 !important;
+  text-shadow:0 0 28px #f00;
+  animation:shake .12s infinite;
+}
+
+@keyframes shake{
+  0%{transform:translate(0)}
+  25%{transform:translate(-4px,2px)}
+  50%{transform:translate(4px,-2px)}
+  75%{transform:translate(-2px,-4px)}
+  100%{transform:translate(0)}
+}
 
 .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 button{
-  padding:14px 18px;font-size:18px;font-weight:800;
+  padding:14px 16px;font-size:18px;font-weight:800;
   border-radius:14px;border:none;background:#111;color:#fff;
 }
 button.secondary{background:#555}
+button.small{font-size:14px;padding:10px 12px}
 button:disabled{opacity:.5}
 
+.grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(200px,1fr));
+  gap:10px;text-align:left;
+}
+.namebox{
+  display:flex;gap:8px;align-items:center;
+  border:1px solid #ddd;border-radius:14px;padding:10px;background:#fff;
+}
+
 table{width:100%;border-collapse:collapse;font-size:14px}
-th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
+th,td{border-bottom:1px solid #eee;padding:10px 8px;text-align:left}
+th{background:#fafafa}
 .right{text-align:right}
 
-/* 100専用演出 */
 body.dark{background:#000;color:#c00}
-.num.shock{
-  color:#f00 !important;
-  text-shadow:0 0 26px #f00;
-  animation:shake .12s infinite;
-}
-@keyframes shake{
-  0%{transform:translate(0)}
-  25%{transform:translate(-3px,2px)}
-  50%{transform:translate(3px,-2px)}
-  75%{transform:translate(-2px,-3px)}
-  100%{transform:translate(0)}
-}
 </style>
 </head>
 
@@ -58,29 +71,42 @@ body.dark{background:#000;color:#c00}
 <div class="wrap">
 
 <div class="card">
-<h1>🥩 年末ジャンボ肉くじ 🎯</h1>
+  <h1>🥩 年末ジャンボ肉くじ 🎯</h1>
+  <div class="sub">参加者の名前を入力 → 名前ボタンで抽選</div>
 
-<div id="num" class="num">---</div>
+  <div id="num" class="num">---</div>
 
-<div class="row">
-  <button id="bgmBtn" class="secondary">🎵 BGM ON</button>
-  <button id="voiceBtn" class="secondary">🎤 肉ボイス ON</button>
-  <button id="resetBtn" class="secondary">🧹 リセット</button>
-</div>
+  <div class="row">
+    <button id="bgmBtn" class="secondary">🎵 BGM ON</button>
+    <button id="voiceBtn" class="secondary">🎤 肉ボイス ON</button>
+    <button id="resetBtn" class="secondary">🧹 記録リセット</button>
+  </div>
 </div>
 
 <div class="card">
-<table>
-<thead>
-<tr>
-<th>名前</th>
-<th class="right">数字</th>
-<th class="right">差</th>
-<th>判定</th>
-</tr>
-</thead>
-<tbody id="logBody"></tbody>
-</table>
+  <div class="sub" style="text-align:left"><strong>👥 参加者（8名）</strong></div>
+  <div class="grid" id="nameInputs"></div>
+  <div class="row" style="justify-content:flex-start;margin-top:12px">
+    <button id="applyNames" class="small">✅ 名前を反映</button>
+  </div>
+
+  <div class="sub" style="text-align:left;margin-top:14px"><strong>🎲 抽選</strong></div>
+  <div class="row" id="nameButtons" style="justify-content:flex-start"></div>
+</div>
+
+<div class="card">
+  <div class="sub" style="text-align:left"><strong>🧾 抽選記録</strong></div>
+  <table>
+    <thead>
+      <tr>
+        <th>名前</th>
+        <th class="right">数字</th>
+        <th class="right">差</th>
+        <th>判定</th>
+      </tr>
+    </thead>
+    <tbody id="logBody"></tbody>
+  </table>
 </div>
 
 </div>
@@ -93,6 +119,7 @@ const BGM_FILE='ルーレット.mp3';
 const MIN=0, MAX=100;
 const TARGET=29, NEAR=5;
 const SPIN_MS=2500;
+const TICK_MS=60;
 /* ================= */
 
 const numEl=document.getElementById('num');
@@ -100,6 +127,9 @@ const bgmBtn=document.getElementById('bgmBtn');
 const voiceBtn=document.getElementById('voiceBtn');
 const resetBtn=document.getElementById('resetBtn');
 const logBody=document.getElementById('logBody');
+const nameInputsEl=document.getElementById('nameInputs');
+const nameButtonsEl=document.getElementById('nameButtons');
+const applyNamesBtn=document.getElementById('applyNames');
 
 const bgm=document.getElementById('bgm');
 bgm.src=BGM_FILE;
@@ -108,7 +138,7 @@ let bgmOn=false;
 let voiceOn=true;
 let isRunning=false;
 
-/* ===== AudioContext（iPad対応） ===== */
+/* ===== iPad対応 Audio ===== */
 let audioCtx;
 function ensureAudio(){
   if(!audioCtx){
@@ -120,34 +150,18 @@ function ensureAudio(){
 }
 function beep(freq,ms){
   ensureAudio();
-  const o=audioCtx.createOscillator();
-  const g=audioCtx.createGain();
-  o.frequency.value=freq;
-  g.gain.value=.05;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.frequency.value=freq; g.gain.value=.05;
   o.connect(g).connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime+ms/1000);
-}
-function doomSound(){
-  ensureAudio();
-  const o=audioCtx.createOscillator();
-  const g=audioCtx.createGain();
-  o.type='sawtooth';
-  o.frequency.value=80;
-  g.gain.value=.15;
-  o.connect(g).connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime+.9);
+  o.start(); o.stop(audioCtx.currentTime+ms/1000);
 }
 
 /* ===== 肉ボイス ===== */
 function speak(text,rate=1,pitch=1){
   if(!voiceOn) return;
-  if(!('speechSynthesis'in window))return;
+  if(!('speechSynthesis'in window)) return;
   const u=new SpeechSynthesisUtterance(text);
-  u.lang='ja-JP';
-  u.rate=rate;
-  u.pitch=pitch;
+  u.lang='ja-JP'; u.rate=rate; u.pitch=pitch;
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
@@ -156,80 +170,93 @@ function speak(text,rate=1,pitch=1){
 bgmBtn.onclick=()=>{
   ensureAudio();
   if(!bgmOn){
-    bgm.volume=.3;
-    bgm.currentTime=0;
+    bgm.volume=.3; bgm.currentTime=0;
     bgm.play().catch(()=>{});
-    bgmBtn.textContent='🎵 BGM OFF';
-    bgmOn=true;
+    bgmBtn.textContent='🎵 BGM OFF'; bgmOn=true;
   }else{
     bgm.pause();
-    bgmBtn.textContent='🎵 BGM ON';
-    bgmOn=false;
+    bgmBtn.textContent='🎵 BGM ON'; bgmOn=false;
   }
 };
 
 voiceBtn.onclick=()=>{
   ensureAudio();
-  if(!voiceOn){
-    voiceOn=true;
-    voiceBtn.textContent='🎤 肉ボイス ON';
-    speak('肉、再起動',0.9,1.1); // ON確認用
-  }else{
-    voiceOn=false;
-    speechSynthesis.cancel();
-    voiceBtn.textContent='🎤 肉ボイス OFF';
-  }
+  voiceOn=!voiceOn;
+  voiceBtn.textContent=voiceOn?'🎤 肉ボイス ON':'🎤 肉ボイス OFF';
+  if(voiceOn) speak('肉、再起動',0.9,1.1);
+  else speechSynthesis.cancel();
 };
 
-resetBtn.onclick=()=>{
-  logBody.innerHTML='';
+resetBtn.onclick=()=>{logBody.innerHTML='';};
+
+/* ===== 参加者 ===== */
+let names=Array.from({length:8},(_,i)=>`参加者${i+1}`);
+
+function renderNameInputs(){
+  nameInputsEl.innerHTML='';
+  names.forEach((n,i)=>{
+    nameInputsEl.innerHTML+=
+      `<div class="namebox">${i+1}
+       <input id="nameInput${i}" value="${n}" /></div>`;
+  });
+}
+function renderNameButtons(){
+  nameButtonsEl.innerHTML='';
+  names.forEach((n,i)=>{
+    const b=document.createElement('button');
+    b.textContent=`🎲 ${n}`;
+    b.disabled=isRunning;
+    b.onclick=()=>spinForName(i);
+    nameButtonsEl.appendChild(b);
+  });
+}
+applyNamesBtn.onclick=()=>{
+  for(let i=0;i<8;i++){
+    names[i]=document.getElementById(`nameInput${i}`).value||`参加者${i+1}`;
+  }
+  renderNameButtons();
 };
 
 /* ===== 抽選 ===== */
 function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 
-function spin(){
+function spinForName(index){
   if(isRunning) return;
   isRunning=true;
   ensureAudio();
-  beep(120,30); // unlock
+  beep(120,30);
 
-  document.body.classList.remove('dark');
   numEl.className='num';
+  document.body.classList.remove('dark');
 
   const timer=setInterval(()=>{
     numEl.textContent=String(rand(MIN,MAX)).padStart(3,'0');
-  },60);
+  },TICK_MS);
 
   setTimeout(()=>{
     clearInterval(timer);
     const final=rand(MIN,MAX);
     numEl.textContent=String(final).padStart(3,'0');
+    numEl.classList.add('final');
 
-    if(final===100){
-      if(bgmOn) bgm.pause();
-      document.body.classList.add('dark');
-      numEl.classList.add('shock');
-      doomSound();
-      speak('肉に、見放されし者……',0.75,0.6);
-    }else if(final===TARGET){
-      numEl.classList.add('final');
+    let verdict='もっと肉を愛せよ！';
+    if(final===TARGET){
+      verdict='ミートキング降臨';
       speak('コングラッチュレーショーン！',1.05,1.5);
     }else{
-      numEl.classList.add('final');
       speak(['肉を焦がすなよ','飲み物を肉汁に','デザートも肉にしろ'][Math.floor(Math.random()*3)],0.95,0.7);
     }
 
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>---</td><td class="right">${final}</td><td class="right">${Math.abs(final-TARGET)}</td><td>判定</td>`;
-    logBody.prepend(tr);
+    logBody.innerHTML=
+      `<tr><td>${names[index]}</td><td class="right">${final}</td><td class="right">${Math.abs(final-TARGET)}</td><td>${verdict}</td></tr>`+logBody.innerHTML;
 
     isRunning=false;
   },SPIN_MS);
 }
 
-/* 画面タップで抽選（宴会向け） */
-document.body.addEventListener('click',spin,{once:false});
+/* 初期描画 */
+renderNameInputs();
+renderNameButtons();
 </script>
 </body>
 </html>
