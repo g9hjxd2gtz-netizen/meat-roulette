@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>年末ジャンボ肉くじ</title>
+<title>ドリームジャンボ肉くじ</title>
 
 <style>
 body{
@@ -163,7 +163,7 @@ body.thunder{
 <div class="wrap">
 
 <div class="card">
-  <h1>🥩 年末ジャンボ肉くじ 🎯</h1>
+  <h1>🌈🥩 ドリームジャンボ肉くじ 🎯🌈</h1>
   <div class="sub">参加者の名前を入力 → 名前ボタンを押して抽選</div>
   <div class="sub">一人5回ずつ抽選、ベストスコアで勝負！誰も29を引けなければリセットリトライ！29を引いても100を引いたら帳消で</div>
   <div id="num" class="num">---</div>
@@ -341,10 +341,10 @@ function setFinalColor(){
 
 /* ★外れメッセージ */
 const meatMessages=[
-  '🥩 もっと肉を愛せよ！',
+  '🥩 肉への愛が足りない！',
   '🥩 肉を焦がしたりしてないよね？',
   '🥩 ドリンクを肉汁にしてみる？',
-  '🥩 デザートは肉追加だよね？',
+  '🥩 デザートは一口カレー🍛な',
   '🥩 野菜？なにそれ？',
   '🥩 もしかして100番引きたかった？',
   '🥩 カルビ2人前追加しとく？',
@@ -353,8 +353,8 @@ const meatMessages=[
   '🥩 にんにくも肉の一種だよね',
   '🥩 14引いたら肉食べてジューシーー！！と叫ぶこと',
   '🥩 ロイホに肉パフェはないよ',
-  '🥩 あつい肉は別腹',
-  '🥩 次は2月9日で幹事よろしく'
+  '🥩 シャトーブリアンは別腹',
+  '🥩 次の開催、店のチョイスよろしく'
 ];
 function randomMeatMessage(){
   return meatMessages[Math.floor(Math.random()*meatMessages.length)];
@@ -362,7 +362,7 @@ function randomMeatMessage(){
 
 function verdictText(final){
   if(final===100) return '😈 肉に見放されし者';
-  if(final===TARGET) return '👑 ミートキング／ミートクイーン降臨';
+  if(final===TARGET) return '👑 ドリームミートキング／ミートクイーン降臨';
   if(Math.abs(final-TARGET)<=NEAR) return '🔥 肉の神とすれ違った者';
   return '';
 }
@@ -410,7 +410,7 @@ function spinForName(index){
       setFinalColor();
 
       if(final===TARGET){
-        finalMessage='👑 あなたがミートキング！ミートクイーンだ！！';
+        finalMessage='👑 あなたがドリームミートキング！ミートクイーンだ！！';
         showResultText(finalMessage,'result-win',3500);
         speak('コングラッチュレーショーーーン！！',1.05,1.6);
       }else if(diff<=NEAR){
